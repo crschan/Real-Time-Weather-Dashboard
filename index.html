@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stratos | Real-Time Weather</title>
+    <meta name="description" content="A premium real-time weather dashboard with glassmorphism design.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-animation"></div>
+    
+    <div class="weather-effects">
+        <div class="stars-container" id="stars"></div>
+        <div class="celestial-body" id="celestial"></div>
+        <div class="clouds-container" id="clouds">
+            <div class="cloud cloud-1"></div>
+            <div class="cloud cloud-2"></div>
+            <div class="cloud cloud-3"></div>
+            <div class="cloud cloud-4"></div>
+            <div class="cloud cloud-5"></div>
+        </div>
+        <div class="rain-container" id="rain"></div>
+        <div class="snow-container" id="snow"></div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Sidebar / Search Section -->
+        <aside class="sidebar glass-panel">
+            <div class="search-container">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="city-search" placeholder="Search for cities..." autocomplete="off">
+                <div class="search-results hidden" id="search-results">
+                    <!-- Results populated by JS -->
+                </div>
+            </div>
+
+            <div class="current-location">
+                <i class="fa-solid fa-location-crosshairs"></i>
+                <span id="location-name">Loading...</span>
+            </div>
+
+            <div class="main-weather">
+                <div class="weather-icon-large" id="main-icon">
+                    <i class="fa-solid fa-cloud-sun"></i>
+                </div>
+                <h1 class="temperature" id="main-temp">--°</h1>
+                <p class="condition" id="main-condition">--</p>
+                <div class="date-time">
+                    <p id="current-day">--</p>
+                    <p id="current-time">--:--</p>
+                </div>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <div class="weather-summary">
+                <div class="summary-item">
+                    <i class="fa-solid fa-cloud"></i>
+                    <span>Cloud Cover</span>
+                    <strong id="cloud-cover">--%</strong>
+                </div>
+                <div class="summary-item">
+                    <i class="fa-solid fa-droplet"></i>
+                    <span>Humidity</span>
+                    <strong id="humidity">--%</strong>
+                </div>
+                <div class="summary-item">
+                    <i class="fa-solid fa-wind"></i>
+                    <span>Wind</span>
+                    <strong id="wind-speed">-- km/h</strong>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="header flex-between glass-panel">
+                <h2 class="greeting" id="greeting">Good Morning</h2>
+                <div class="units-toggle">
+                    <button class="unit-btn active" id="btn-c">°C</button>
+                    <button class="unit-btn" id="btn-f">°F</button>
+                </div>
+            </header>
+
+            <!-- Highlights Grid -->
+            <section class="highlights-section">
+                <h3 class="section-title">Today's Highlights</h3>
+                <div class="grid highlights-grid">
+                    
+                    <div class="highlight-card glass-panel">
+                        <p class="card-title">UV Index</p>
+                        <div class="card-body gauge-container">
+                            <div class="gauge">
+                                <svg viewBox="0 0 100 50" class="gauge-svg">
+                                    <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" />
+                                    <path class="gauge-value" id="uv-gauge" d="M 10 50 A 40 40 0 0 1 90 50" stroke-dasharray="125" stroke-dashoffset="125" />
+                                </svg>
+                                <div class="gauge-text">
+                                    <h2 id="uv-value">--</h2>
+                                </div>
+                            </div>
+                            <p class="card-desc" id="uv-desc">--</p>
+                        </div>
+                    </div>
+
+                    <div class="highlight-card glass-panel">
+                        <p class="card-title">Wind Status</p>
+                        <div class="card-body">
+                            <h2><span id="wind-status-speed">--</span> <span class="text-sm">km/h</span></h2>
+                            <div class="wind-direction">
+                                <i class="fa-solid fa-compass" id="wind-dir-icon"></i>
+                                <span id="wind-direction-text">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="highlight-card glass-panel">
+                        <p class="card-title">Sunrise & Sunset</p>
+                        <div class="card-body sun-times">
+                            <div class="sun-item">
+                                <i class="fa-solid fa-arrow-up-sun text-yellow"></i>
+                                <div class="sun-details">
+                                    <span>Sunrise</span>
+                                    <strong id="sunrise-time">--:-- AM</strong>
+                                </div>
+                            </div>
+                            <div class="sun-item">
+                                <i class="fa-solid fa-arrow-down-sun text-orange"></i>
+                                <div class="sun-details">
+                                    <span>Sunset</span>
+                                    <strong id="sunset-time">--:-- PM</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="highlight-card glass-panel">
+                        <p class="card-title">Pressure</p>
+                        <div class="card-body">
+                            <h2><span id="pressure-value">--</span> <span class="text-sm">hPa</span></h2>
+                            <p class="card-desc">Normal</p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Forecast Section -->
+            <section class="forecast-section">
+                <h3 class="section-title">7-Day Forecast</h3>
+                <div class="forecast-container glass-panel" id="daily-forecast">
+                    <!-- Forecast items populated by JS -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
