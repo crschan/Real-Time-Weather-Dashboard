@@ -34,138 +34,168 @@
         <div class="snow-container" id="snow"></div>
     </div>
 
-    <div class="dashboard-container">
-        <!-- Sidebar / Search Section -->
-        <aside class="sidebar glass-panel">
+    <main class="weather-shell">
+        <header class="weather-toolbar">
             <div class="search-container">
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" id="city-search" placeholder="Search for cities..." autocomplete="off">
-                <div class="search-results hidden" id="search-results">
-                    <!-- Results populated by JS -->
-                </div>
+                <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+                <label class="visually-hidden" for="city-search">Search for a city</label>
+                <input type="text" id="city-search" placeholder="Search cities" autocomplete="off">
+                <div class="search-results hidden" id="search-results"></div>
             </div>
+            <div class="units-toggle" aria-label="Temperature units">
+                <button class="unit-btn active" id="btn-c" aria-label="Celsius">°C</button>
+                <button class="unit-btn" id="btn-f" aria-label="Fahrenheit">°F</button>
+            </div>
+        </header>
 
-            <div class="current-location">
-                <i class="fa-solid fa-location-crosshairs"></i>
+        <section class="current-conditions" aria-label="Current weather">
+            <p class="greeting" id="greeting">Good Morning</p>
+            <h1 class="current-location">
+                <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
                 <span id="location-name">Loading...</span>
-            </div>
-
-            <div class="main-weather">
+            </h1>
+            <div class="current-reading">
                 <div class="weather-icon-large" id="main-icon">
                     <i class="fa-solid fa-cloud-sun"></i>
                 </div>
-                <h1 class="temperature" id="main-temp">--°</h1>
-                <p class="condition" id="main-condition">--</p>
+                <div class="current-temperature-block">
+                    <p class="temperature" id="main-temp">--°</p>
+                    <p class="condition" id="main-condition">--</p>
+                </div>
+            </div>
+            <div class="current-meta">
                 <div class="date-time">
                     <p id="current-day">--</p>
                     <p id="current-time">--:--</p>
                 </div>
+                <div class="today-range">
+                    <span>H: <strong id="high-temp">--°</strong></span>
+                    <span>L: <strong id="low-temp">--°</strong></span>
+                </div>
             </div>
-
-            <div class="sidebar-divider"></div>
-
             <div class="weather-summary">
                 <div class="summary-item">
-                    <i class="fa-solid fa-cloud"></i>
-                    <span>Cloud Cover</span>
+                    <i class="fa-solid fa-cloud" aria-hidden="true"></i>
+                    <span>Cloud cover</span>
                     <strong id="cloud-cover">--%</strong>
                 </div>
                 <div class="summary-item">
-                    <i class="fa-solid fa-droplet"></i>
+                    <i class="fa-solid fa-droplet" aria-hidden="true"></i>
                     <span>Humidity</span>
                     <strong id="humidity">--%</strong>
                 </div>
                 <div class="summary-item">
-                    <i class="fa-solid fa-wind"></i>
+                    <i class="fa-solid fa-wind" aria-hidden="true"></i>
                     <span>Wind</span>
                     <strong id="wind-speed">-- km/h</strong>
                 </div>
             </div>
-        </aside>
+        </section>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Top Header -->
-            <header class="header flex-between glass-panel">
-                <h2 class="greeting" id="greeting">Good Morning</h2>
-                <div class="units-toggle">
-                    <button class="unit-btn active" id="btn-c">°C</button>
-                    <button class="unit-btn" id="btn-f">°F</button>
+        <div class="weather-feed">
+            <section class="forecast-section">
+                <div class="section-heading">
+                    <h2 class="section-title">Hourly Forecast</h2>
+                    <span class="section-note" id="hourly-day-label">Next 12 hours</span>
                 </div>
-            </header>
+                <div class="hourly-forecast glass-panel" id="hourly-forecast"></div>
+            </section>
 
-            <!-- Highlights Grid -->
+            <section class="forecast-section">
+                <div class="section-heading">
+                    <h2 class="section-title">7-Day Forecast</h2>
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                </div>
+                <div class="forecast-container glass-panel" id="daily-forecast"></div>
+            </section>
+
             <section class="highlights-section">
-                <h3 class="section-title">Today's Highlights</h3>
+                <div class="section-heading">
+                    <h2 class="section-title">Weather Details</h2>
+                </div>
                 <div class="grid highlights-grid">
-                    
-                    <div class="highlight-card glass-panel">
+                    <article class="highlight-card glass-panel">
                         <p class="card-title">UV Index</p>
                         <div class="card-body gauge-container">
                             <div class="gauge">
-                                <svg viewBox="0 0 100 50" class="gauge-svg">
+                                <svg viewBox="0 0 100 50" class="gauge-svg" aria-hidden="true">
                                     <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" />
                                     <path class="gauge-value" id="uv-gauge" d="M 10 50 A 40 40 0 0 1 90 50" stroke-dasharray="125" stroke-dashoffset="125" />
                                 </svg>
-                                <div class="gauge-text">
-                                    <h2 id="uv-value">--</h2>
-                                </div>
+                                <div class="gauge-text"><h3 id="uv-value">--</h3></div>
                             </div>
                             <p class="card-desc" id="uv-desc">--</p>
                         </div>
-                    </div>
+                    </article>
 
-                    <div class="highlight-card glass-panel">
-                        <p class="card-title">Wind Status</p>
+                    <article class="highlight-card glass-panel">
+                        <p class="card-title">Wind</p>
                         <div class="card-body">
-                            <h2><span id="wind-status-speed">--</span> <span class="text-sm">km/h</span></h2>
+                            <h3><span id="wind-status-speed">--</span> <span class="text-sm">km/h</span></h3>
                             <div class="wind-direction">
-                                <i class="fa-solid fa-compass" id="wind-dir-icon"></i>
+                                <i class="fa-solid fa-compass" id="wind-dir-icon" aria-hidden="true"></i>
                                 <span id="wind-direction-text">--</span>
                             </div>
                         </div>
-                    </div>
+                    </article>
 
-                    <div class="highlight-card glass-panel">
+                    <article class="highlight-card glass-panel">
                         <p class="card-title">Sunrise & Sunset</p>
                         <div class="card-body sun-times">
                             <div class="sun-item">
-                                <i class="fa-solid fa-arrow-up-sun text-yellow"></i>
-                                <div class="sun-details">
-                                    <span>Sunrise</span>
-                                    <strong id="sunrise-time">--:-- AM</strong>
-                                </div>
+                                <i class="fa-solid fa-arrow-up-sun text-yellow" aria-hidden="true"></i>
+                                <div class="sun-details"><span>Sunrise</span><strong id="sunrise-time">--:-- AM</strong></div>
                             </div>
                             <div class="sun-item">
-                                <i class="fa-solid fa-arrow-down-sun text-orange"></i>
-                                <div class="sun-details">
-                                    <span>Sunset</span>
-                                    <strong id="sunset-time">--:-- PM</strong>
-                                </div>
+                                <i class="fa-solid fa-arrow-down-sun text-orange" aria-hidden="true"></i>
+                                <div class="sun-details"><span>Sunset</span><strong id="sunset-time">--:-- PM</strong></div>
                             </div>
                         </div>
-                    </div>
+                    </article>
 
-                    <div class="highlight-card glass-panel">
+                    <article class="highlight-card glass-panel">
                         <p class="card-title">Pressure</p>
                         <div class="card-body">
-                            <h2><span id="pressure-value">--</span> <span class="text-sm">hPa</span></h2>
-                            <p class="card-desc">Normal</p>
+                            <h3><span id="pressure-value">--</span> <span class="text-sm">hPa</span></h3>
+                            <p class="card-desc">At sea level</p>
                         </div>
+                    </article>
+                </div>
+            </section>
+
+            <div class="assistant-grid">
+                <section class="ai-section">
+                    <div class="section-heading"><h2 class="section-title">Weather Insight</h2></div>
+                    <div class="ai-summary glass-panel">
+                        <span class="ai-badge"><i class="fa-solid fa-wand-sparkles" aria-hidden="true"></i> Gemini</span>
+                        <p id="ai-summary-text">Generating local weather guidance...</p>
                     </div>
+                </section>
 
+                <section class="outfit-section">
+                    <div class="section-heading"><h2 class="section-title">What to Wear</h2></div>
+                    <div class="outfit-panel glass-panel">
+                        <i class="fa-solid fa-shirt outfit-icon" aria-hidden="true"></i>
+                        <p id="outfit-recommendation">Checking the forecast for outfit advice...</p>
+                    </div>
+                </section>
+            </div>
+
+            <section class="coach-section">
+                <div class="section-heading"><h2 class="section-title">Weather Coach</h2></div>
+                <div class="coach-panel glass-panel">
+                    <div class="chat-messages" id="chat-messages" aria-live="polite">
+                        <p class="chat-message assistant-message">Ask me about today's weather, whether to bring an umbrella, or what to wear.</p>
+                    </div>
+                    <form class="chat-form" id="chat-form">
+                        <label class="visually-hidden" for="chat-input">Ask the Weather Coach</label>
+                        <input id="chat-input" type="text" maxlength="1000" placeholder="Ask about the weather..." autocomplete="off" required>
+                        <button type="submit" aria-label="Send message" title="Send message"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
+                    </form>
                 </div>
             </section>
-
-            <!-- Forecast Section -->
-            <section class="forecast-section">
-                <h3 class="section-title">7-Day Forecast</h3>
-                <div class="forecast-container glass-panel" id="daily-forecast">
-                    <!-- Forecast items populated by JS -->
-                </div>
-            </section>
-        </main>
-    </div>
+        </div>
+    </main>
 
     <script src="script.js"></script>
 </body>

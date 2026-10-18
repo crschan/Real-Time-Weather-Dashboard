@@ -7,6 +7,7 @@ let currentLat = 51.5085;
 let currentLon = -0.1257;
 let currentLocationName = "London, United Kingdom";
 let isCelsius = true;
+let currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // DOM Elements
 const searchInput = document.getElementById('city-search');
@@ -18,6 +19,8 @@ const mainTemp = document.getElementById('main-temp');
 const mainCondition = document.getElementById('main-condition');
 const currentDay = document.getElementById('current-day');
 const currentTime = document.getElementById('current-time');
+const highTemp = document.getElementById('high-temp');
+const lowTemp = document.getElementById('low-temp');
 
 const cloudCoverEl = document.getElementById('cloud-cover');
 const humidityEl = document.getElementById('humidity');
@@ -39,7 +42,17 @@ const sunriseTime = document.getElementById('sunrise-time');
 const sunsetTime = document.getElementById('sunset-time');
 const pressureValue = document.getElementById('pressure-value');
 
+const hourlyForecastContainer = document.getElementById('hourly-forecast');
+const hourlyDayLabel = document.getElementById('hourly-day-label');
+const aiSummaryText = document.getElementById('ai-summary-text');
+const outfitRecommendation = document.getElementById('outfit-recommendation');
+const chatForm = document.getElementById('chat-form');
+const chatInput = document.getElementById('chat-input');
+const chatMessages = document.getElementById('chat-messages');
 const dailyForecastContainer = document.getElementById('daily-forecast');
+let currentWeatherContext = null;
+let chatHistory = [];
+let selectedForecastDate = null;
 
 // Mapping WMO Weather codes to FontAwesome Icons and Descriptions
 const weatherCodeMap = {
@@ -77,25 +90,29 @@ const weatherCodeMap = {
 function updateDateTime() {
     const now = new Date();
     
-    // Day and Date formatting
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    currentDay.textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
-    
-    // Time formatting
-    let hours = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    
-    // Setting Greeting based on time
-    if (hours >= 5 && hours < 12) greetingEl.textContent = "Good Morning";
-    else if (hours >= 12 && hours < 18) greetingEl.textContent = "Good Afternoon";
-    else greetingEl.textContent = "Good Evening";
-    
-    hours = hours % 12;
-    hours = hours ? hours : 12; 
-    currentTime.textContent = `${hours}:${minutes} ${ampm}`;
+    try {
+        // Day and Date formatting
+        const optionsDate = { weekday: 'long', day: 'numeric', month: 'short', timeZone: currentTimezone };
+        currentDay.textContent = now.toLocaleDateString('en-US', optionsDate);
+        
+        // Time formatting
+        const optionsTime = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: currentTimezone };
+        currentTime.textContent = now.toLocaleTimeString('en-US', optionsTime);
+
+        // Setting Greeting based on target time
+        const hourFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: currentTimezone });
+        const hourNum = parseInt(hourFormatter.format(now), 10);
+        
+        if (hourNum >= 5 && hourNum < 12) greetingEl.textContent = "Good Morning";
+        else if (hourNum >= 12 && hourNum < 18) greetingEl.textContent = "Good Afternoon";
+        else greetingEl.textContent = "Good Evening";
+    } catch(e) {
+        // Fallback gracefully
+        const optionsDate = { weekday: 'long', day: 'numeric', month: 'short' };
+        currentDay.textContent = now.toLocaleDateString('en-US', optionsDate);
+        const optionsTime = { hour: 'numeric', minute: '2-digit', hour12: true };
+        currentTime.textContent = now.toLocaleTimeString('en-US', optionsTime);
+    }
 }
 
 setInterval(updateDateTime, 1000);
@@ -160,6 +177,7 @@ function displaySearchResults(results) {
             currentLat = result.latitude;
             currentLon = result.longitude;
             currentLocationName = `${result.name}${country}`;
+            selectedForecastDate = null;
             searchInput.value = '';
             searchResults.classList.add('hidden');
             fetchWeather();
@@ -185,18 +203,20 @@ function getWindDirection(degree) {
 }
 
 function formatTime(isoString) {
-    const date = new Date(isoString);
-    let hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; 
-    return `${hours}:${minutes} ${ampm}`;
+    const timePart = isoString.split('T')[1];
+    let [hours, minutes] = timePart.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; 
+    return `${h}:${minutes} ${ampm}`;
 }
 
 function getDayName(isoString) {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const date = new Date(isoString);
+    const dateStr = isoString.split('T')[0];
+    const parts = dateStr.split('-');
+    const date = new Date(parts[0], parts[1]-1, parts[2]); // Construct at local midnight
     return days[date.getDay()];
 }
 
@@ -213,8 +233,9 @@ async function fetchWeather() {
         const params = new URLSearchParams({
             latitude: currentLat,
             longitude: currentLon,
-            current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m',
-            daily: 'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max',
+            current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,is_day',
+            hourly: 'temperature_2m,weather_code,precipitation_probability,wind_speed_10m',
+            daily: 'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max',
             timezone: 'auto'
         });
 
@@ -227,31 +248,178 @@ async function fetchWeather() {
     }
 }
 
+function getHourlyLabel(timeString, index, isCurrentHour) {
+    const [, timePart] = timeString.split('T');
+    const [hourString] = timePart.split(':');
+    const hour = Number(hourString);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const converted = hour % 12 || 12;
+
+    if (index === 0 && isCurrentHour) return 'Now';
+    return `${converted}${ampm}`;
+}
+
+function renderHourlyForecast(hourlyData, currentTimeValue, selectedDate = null) {
+    if (!hourlyData || !hourlyData.time) {
+        hourlyForecastContainer.innerHTML = '';
+        return;
+    }
+
+    const currentIndex = hourlyData.time.findIndex((time) => time === currentTimeValue || time.startsWith(currentTimeValue.slice(0, 13)));
+    const currentDate = currentTimeValue.slice(0, 10);
+    const targetDate = selectedDate || currentDate;
+    const dayStartIndex = hourlyData.time.findIndex((time) => time.startsWith(targetDate));
+    const startIndex = selectedDate && selectedDate !== currentDate
+        ? dayStartIndex
+        : currentIndex >= 0 ? currentIndex : Math.max(dayStartIndex, 0);
+
+    hourlyDayLabel.textContent = selectedDate
+        ? selectedDate === currentDate ? 'Today' : `${getDayName(`${selectedDate}T12:00`)} - ${selectedDate}`
+        : 'Next 12 hours';
+
+    hourlyForecastContainer.innerHTML = '';
+    if (startIndex < 0) return;
+
+    const hoursToShow = selectedDate ? 24 : 12;
+    for (let i = 0; i < hoursToShow; i++) {
+        const index = startIndex + i;
+        if (index >= hourlyData.time.length) break;
+
+        const time = hourlyData.time[index];
+        if (!time.startsWith(targetDate)) break;
+        const temp = hourlyData.temperature_2m[index];
+        const code = hourlyData.weather_code[index];
+        const rainChance = hourlyData.precipitation_probability?.[index] ?? 0;
+        const weather = weatherCodeMap[code] || weatherCodeMap[0];
+
+        const card = document.createElement('div');
+        card.className = 'hourly-card';
+        card.innerHTML = `
+            <span class="hourly-time">${getHourlyLabel(time, i, !selectedDate || selectedDate === currentDate)}</span>
+            <div class="hourly-icon"><i class="fa-solid ${weather.icon}" style="color: ${weather.color}"></i></div>
+            <div class="hourly-temp">${isCelsius ? Math.round(temp) + '°' : Math.round((temp * 9/5) + 32) + '°'}</div>
+            <div class="hourly-pop">${rainChance}% rain</div>
+        `;
+
+        hourlyForecastContainer.appendChild(card);
+    }
+}
+
+function buildWeatherContext(data) {
+    const current = data.current;
+    const daily = data.daily;
+    const hourly = data.hourly;
+    const weather = weatherCodeMap[current.weather_code] || weatherCodeMap[0];
+    const displayTemperature = (value) => Math.round(isCelsius ? value : value * 9 / 5 + 32);
+    return {
+        location: currentLocationName,
+        temperature: displayTemperature(current.temperature_2m),
+        feelsLike: displayTemperature(current.apparent_temperature),
+        units: isCelsius ? 'Celsius' : 'Fahrenheit',
+        condition: weather.desc,
+        humidity: current.relative_humidity_2m,
+        windSpeedKmh: current.wind_speed_10m,
+        uvIndex: daily.uv_index_max[0] || 0,
+        daily: daily.time.map((date, index) => ({
+            date,
+            day: index === 0 ? 'Today' : getDayName(`${date}T12:00`),
+            condition: (weatherCodeMap[daily.weather_code[index]] || weatherCodeMap[0]).desc,
+            high: displayTemperature(daily.temperature_2m_max[index]),
+            low: displayTemperature(daily.temperature_2m_min[index]),
+            precipitationChance: daily.precipitation_probability_max?.[index] ?? null
+        })),
+        hourly: hourly.time.slice(0, 12).map((time, index) => ({
+            time,
+            temperature: displayTemperature(hourly.temperature_2m[index]),
+            condition: (weatherCodeMap[hourly.weather_code[index]] || weatherCodeMap[0]).desc,
+            precipitationChance: hourly.precipitation_probability?.[index] ?? 0
+        }))
+    };
+}
+
+function getLocalInsight(context) {
+    const peakRain = Math.max(...context.hourly.slice(0, 6).map((hour) => hour.precipitationChance));
+    const temperature = `${context.temperature}°${isCelsius ? 'C' : 'F'}`;
+    let advice = `It is ${context.condition.toLowerCase()} and ${temperature} in ${context.location}. `;
+    advice += context.windSpeedKmh > 25 ? 'Winds are strong, so secure loose items outdoors. ' : 'Winds are fairly calm. ';
+    advice += peakRain > 60 ? 'Rain is likely in the next few hours; bring an umbrella.' : context.uvIndex >= 8 ? 'UV is very high; use sun protection outdoors.' : 'No major weather changes are expected soon.';
+    return advice;
+}
+
+function getLocalOutfit(context) {
+    const peakRain = Math.max(...context.hourly.slice(0, 6).map((hour) => hour.precipitationChance));
+    const temperatureCelsius = isCelsius ? context.temperature : (context.temperature - 32) * 5 / 9;
+    const layers = temperatureCelsius < 5 ? 'a warm coat, sweater, and closed-toe shoes' : temperatureCelsius < 15 ? 'a light-to-medium jacket and comfortable layers' : temperatureCelsius < 25 ? 'a light top and trousers' : 'breathable, lightweight clothing';
+    const weatherAdvice = peakRain > 50 ? ' Bring a waterproof layer or umbrella.' : context.uvIndex >= 6 ? ' Add sunglasses and sunscreen.' : '';
+    return `Try ${layers}.${weatherAdvice}`;
+}
+
+async function requestCoach(task, message = '') {
+    const response = await fetch('/api/ai/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, message, history: chatHistory.slice(-8), weather: currentWeatherContext })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'The AI service is unavailable.');
+    return result.reply.replace(/\*\*(.*?)\*\*/g, '$1').trim();
+}
+
+function appendChatMessage(role, text) {
+    const message = document.createElement('p');
+    message.className = `chat-message ${role === 'user' ? 'user-message' : 'assistant-message'}`;
+    message.textContent = text;
+    chatMessages.appendChild(message);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const message = chatInput.value.trim();
+    if (!message || !currentWeatherContext) return;
+
+    appendChatMessage('user', message);
+    chatHistory.push({ role: 'user', content: message });
+    chatInput.value = '';
+    chatInput.disabled = true;
+    chatForm.querySelector('button').disabled = true;
+
+    try {
+        const reply = await requestCoach('chat', message);
+        appendChatMessage('assistant', reply);
+        chatHistory.push({ role: 'assistant', content: reply });
+        chatHistory = chatHistory.slice(-8);
+    } catch (error) {
+        appendChatMessage('assistant', error.message);
+    } finally {
+        chatInput.disabled = false;
+        chatForm.querySelector('button').disabled = false;
+        chatInput.focus();
+    }
+});
+
 function updateDashboard(data) {
     const current = data.current;
     const daily = data.daily;
+    const hourly = data.hourly;
+    
+    currentTimezone = data.timezone;
     
     // Time of day & Weather Effects Logic
-    const currentLocalTime = new Date(current.time);
-    const sunrise = new Date(daily.sunrise[0]);
-    const sunset = new Date(daily.sunset[0]);
-    
-    const nowMs = currentLocalTime.getTime();
-    const sunriseMs = sunrise.getTime();
-    const sunsetMs = sunset.getTime();
+    const nowMs = new Date(current.time + "Z").getTime();
+    const sunriseMs = new Date(daily.sunrise[0] + "Z").getTime();
+    const sunsetMs = new Date(daily.sunset[0] + "Z").getTime();
     
     const sunsetDiff = Math.abs(nowMs - sunsetMs) / (1000 * 60);
     const sunriseDiff = Math.abs(nowMs - sunriseMs) / (1000 * 60);
 
     let timeClass = 'time-day';
-    if (sunsetDiff <= 45) {
+    if (sunsetDiff <= 45 || sunriseDiff <= 45) {
         timeClass = 'time-sunset';
-    } else if (sunriseDiff <= 45) {
-        timeClass = 'time-sunset';
-    } else if (nowMs < sunriseMs || nowMs > sunsetMs) {
-        timeClass = 'time-night';
+    } else if (current.is_day !== undefined) {
+        timeClass = current.is_day === 0 ? 'time-night' : 'time-day';
     } else {
-        timeClass = 'time-day';
+        timeClass = (nowMs < sunriseMs || nowMs > sunsetMs) ? 'time-night' : 'time-day';
     }
     
     const code = current.weather_code;
@@ -272,6 +440,8 @@ function updateDashboard(data) {
     mainIcon.innerHTML = `<i class="fa-solid ${weatherInfo.icon}" style="color: ${weatherInfo.color}"></i>`;
     mainTemp.textContent = isCelsius ? `${Math.round(current.temperature_2m)}°` : `${Math.round((current.temperature_2m * 9/5) + 32)}°`;
     mainCondition.textContent = weatherInfo.desc;
+    highTemp.textContent = convertTemp(daily.temperature_2m_max[0]).replace(/[CF]$/, '');
+    lowTemp.textContent = convertTemp(daily.temperature_2m_min[0]).replace(/[CF]$/, '');
     
     // Update Sidebar Summaries
     cloudCoverEl.textContent = `${current.cloud_cover}%`;
@@ -309,28 +479,62 @@ function updateDashboard(data) {
     // Pressure
     pressureValue.textContent = current.surface_pressure;
     
+    renderHourlyForecast(hourly, current.time, selectedForecastDate);
+    currentWeatherContext = buildWeatherContext(data);
+    aiSummaryText.textContent = getLocalInsight(currentWeatherContext);
+    outfitRecommendation.textContent = getLocalOutfit(currentWeatherContext);
+    Promise.all([
+        requestCoach('insight')
+            .then((reply) => { aiSummaryText.textContent = reply; })
+            .catch((error) => { aiSummaryText.textContent = `${getLocalInsight(currentWeatherContext)} AI unavailable: ${error.message}`; }),
+        requestCoach('outfit')
+            .then((reply) => { outfitRecommendation.textContent = reply; })
+            .catch((error) => { outfitRecommendation.textContent = `${getLocalOutfit(currentWeatherContext)} AI unavailable: ${error.message}`; })
+    ]);
+
     // 7-Day Forecast
     dailyForecastContainer.innerHTML = '';
+    const weekLow = Math.min(...daily.temperature_2m_min.slice(0, 7));
+    const weekHigh = Math.max(...daily.temperature_2m_max.slice(0, 7));
+    const weekRange = weekHigh - weekLow || 1;
     
     for (let i = 0; i < 7; i++) {
         const itemCode = daily.weather_code[i];
         const itemWeather = weatherCodeMap[itemCode] || weatherCodeMap[0];
         
         const dayName = i === 0 ? "Today" : getDayName(daily.time[i]);
+        const lowOffset = ((daily.temperature_2m_min[i] - weekLow) / weekRange) * 100;
+        const tempWidth = Math.max(((daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) / weekRange) * 100, 8);
+        const rainChance = daily.precipitation_probability_max?.[i] ?? 0;
         
-        const div = document.createElement('div');
-        div.className = 'forecast-item';
-        div.innerHTML = `
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `forecast-item${selectedForecastDate === daily.time[i] ? ' selected' : ''}`;
+        button.setAttribute('aria-pressed', String(selectedForecastDate === daily.time[i]));
+        button.setAttribute('aria-label', `${dayName}: ${itemWeather.desc}, high ${convertTemp(daily.temperature_2m_max[i])}, low ${convertTemp(daily.temperature_2m_min[i])}. Show hourly forecast`);
+        button.innerHTML = `
             <span class="forecast-day">${dayName}</span>
             <div class="forecast-icon">
                 <i class="fa-solid ${itemWeather.icon}" style="color: ${itemWeather.color}"></i>
             </div>
+            <span class="forecast-rain">${rainChance ? `${rainChance}%` : ''}</span>
+            <div class="temp-range"><span class="temp-range-fill" style="left: ${lowOffset}%; width: ${tempWidth}%"></span></div>
             <div class="forecast-temp">
-                <span class="temp-max">${convertTemp(daily.temperature_2m_max[i])}</span>
                 <span class="temp-min">${convertTemp(daily.temperature_2m_min[i])}</span>
+                <span class="temp-max">${convertTemp(daily.temperature_2m_max[i])}</span>
             </div>
         `;
-        dailyForecastContainer.appendChild(div);
+        button.addEventListener('click', () => {
+            selectedForecastDate = daily.time[i];
+            dailyForecastContainer.querySelectorAll('.forecast-item').forEach((item) => {
+                const isSelected = item === button;
+                item.classList.toggle('selected', isSelected);
+                item.setAttribute('aria-pressed', String(isSelected));
+            });
+            renderHourlyForecast(hourly, current.time, selectedForecastDate);
+            document.getElementById('hourly-forecast').closest('.forecast-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+        dailyForecastContainer.appendChild(button);
     }
 }
 
@@ -379,5 +583,33 @@ function createWeatherElements() {
 
 createWeatherElements();
 
+function initGeolocation() {
+    fetchWeather();
+
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                currentLat = position.coords.latitude;
+                currentLon = position.coords.longitude;
+                try {
+                    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLon}&localityLanguage=en`);
+                    const data = await res.json();
+                    
+                    if (data.city || data.locality) {
+                        currentLocationName = `${data.city || data.locality}${data.countryName ? ", " + data.countryName : ""}`;
+                    } else {
+                        currentLocationName = "Current Location";
+                    }
+                } catch(err) {
+                    currentLocationName = "Current Location";
+                }
+                fetchWeather();
+            },
+            () => {},
+            { timeout: 8000, maximumAge: 300000 }
+        );
+    }
+}
+
 // Initial Fetch
-fetchWeather();
+initGeolocation();
